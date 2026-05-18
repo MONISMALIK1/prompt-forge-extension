@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "Prompt Forge — Senior Dev Prompt Enhancer",
+  "version": "1.0.0",
+  "description": "Rewrites your rough prompt into a precise, senior-engineer-quality specification — reducing AI hallucinations.",
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Prompt Forge"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://perplexity.ai/*",
+        "https://www.perplexity.ai/*",
+        "https://poe.com/*",
+        "https://chat.mistral.ai/*",
+        "https://huggingface.co/chat/*",
+        "https://grok.com/*",
+        "https://x.com/i/grok*"
+      ],
+      "js": ["classifier.js", "enricher.js", "content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "activeTab", "clipboardWrite"],
+  "host_permissions": [
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://perplexity.ai/*",
+    "https://www.perplexity.ai/*",
+    "https://poe.com/*",
+    "https://chat.mistral.ai/*",
+    "https://huggingface.co/chat/*",
+    "https://grok.com/*",
+    "https://x.com/*"
+  ]
+}

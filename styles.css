@@ -1,0 +1,250 @@
+/* ── Prompt Forge — Enhance Button ─────────────────────────────────────── */
+
+#pf-enhance-btn {
+  position: absolute;
+  z-index: 2147483646;
+  padding: 5px 13px;
+  background: #1a1a2e;
+  color: #a5b4fc;
+  border: 1px solid #3730a3;
+  border-radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+#pf-enhance-btn:hover {
+  background: #3730a3;
+  color: #e0e7ff;
+  border-color: #6366f1;
+}
+
+#pf-enhance-btn.pf-hidden {
+  display: none;
+}
+
+/* ── Side Panel ─────────────────────────────────────────────────────────── */
+
+#pf-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 480px;
+  height: 100vh;
+  background: #0f1117;
+  border-left: 1px solid #1e293b;
+  box-shadow: -6px 0 32px rgba(0,0,0,0.55);
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  color: #e2e8f0;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#pf-panel.pf-panel-closed {
+  transform: translateX(100%);
+}
+
+#pf-panel.pf-panel-open {
+  transform: translateX(0);
+}
+
+/* Header */
+.pf-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid #1e293b;
+  flex-shrink: 0;
+}
+
+.pf-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pf-panel-logo {
+  font-size: 14px;
+  font-weight: 700;
+  color: #a5b4fc;
+  letter-spacing: -0.01em;
+}
+
+.pf-task-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  background: #1e293b;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.pf-close-btn {
+  background: none;
+  border: none;
+  color: #475569;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.1s, background 0.1s;
+}
+.pf-close-btn:hover {
+  color: #e2e8f0;
+  background: #1e293b;
+}
+
+/* Meta line */
+.pf-meta {
+  padding: 7px 18px 8px;
+  font-size: 10.5px;
+  color: #475569;
+  border-bottom: 1px solid #1e293b;
+  flex-shrink: 0;
+}
+
+/* Section label */
+.pf-section-label {
+  padding: 10px 18px 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  flex-shrink: 0;
+}
+
+/* Output textarea */
+.pf-output-wrap {
+  flex: 1;
+  padding: 0 18px;
+  min-height: 0;
+}
+
+.pf-output {
+  width: 100%;
+  height: 100%;
+  background: #090d17;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+  padding: 12px 14px;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.pf-output:focus {
+  border-color: #3730a3;
+}
+
+/* Task type row */
+.pf-task-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px 6px;
+  flex-shrink: 0;
+}
+
+.pf-label {
+  font-size: 11px;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.pf-select {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 12px;
+  padding: 4px 8px;
+  outline: none;
+  cursor: pointer;
+  flex: 1;
+}
+
+.pf-select:focus {
+  border-color: #6366f1;
+}
+
+.pf-regen-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.pf-regen-btn:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+/* Action buttons */
+.pf-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 18px 10px;
+  flex-shrink: 0;
+}
+
+.pf-btn {
+  flex: 1;
+  padding: 9px 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pf-btn-primary {
+  background: #3730a3;
+  color: #e0e7ff;
+}
+.pf-btn-primary:hover {
+  background: #4338ca;
+}
+
+.pf-btn-secondary {
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+}
+.pf-btn-secondary:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+/* Status */
+.pf-status {
+  padding: 0 18px 12px;
+  font-size: 11px;
+  min-height: 20px;
+  flex-shrink: 0;
+}
+
+.pf-status-ok   { color: #22c55e; }
+.pf-status-warn { color: #f59e0b; }
+.pf-status-err  { color: #ef4444; }
