@@ -5,7 +5,8 @@
  * Clicking it:
  *   1. Reads the current draft prompt
  *   2. Detects task type + language
- *   3. Runs pfEnhance() from enricher.js
+ *   3. Calls pfEnhanceLLM() — sends to Ollama via the background worker
+ *      (falls back to rule-based pfEnhance() if Ollama is not running)
  *   4. Opens a slide-in panel showing the enhanced prompt
  *   5. User can Insert (replaces textarea) or Copy
  */
@@ -51,7 +52,18 @@ const PF_SITES = [
   {
     host:     /grok\.com|x\.com/,
     textarea: () => document.querySelector("textarea") || document.querySelector('[contenteditable="true"]'),
-    setVal:   (el, v) => { if (el.tagName === "TEXTAREA") { el.value = v; el.dispatchEvent(new Event("input", { bubbles: true })); } else { el.innerHTML = ""; const p = document.createElement("p"); p.textContent = v; el.appendChild(p); el.dispatchEvent(new InputEvent("input", { bubbles: true })); } },
+    setVal:   (el, v) => {
+      if (el.tagName === "TEXTAREA") {
+        el.value = v;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      } else {
+        el.innerHTML = "";
+        const p = document.createElement("p");
+        p.textContent = v;
+        el.appendChild(p);
+        el.dispatchEvent(new InputEvent("input", { bubbles: true }));
+      }
+    },
   },
 ];
 
@@ -61,6 +73,7 @@ let pfSite       = null;
 let pfBtn        = null;
 let pfPanel      = null;
 let pfLastResult = null;
+let pfLoading    = false;
 
 // ── Get prompt text ───────────────────────────────────────────────────────────
 
@@ -105,14 +118,18 @@ function pfCreatePanel() {
         <span class="pf-panel-logo">Prompt Forge</span>
         <span class="pf-task-badge" id="pf-task-badge">—</span>
       </div>
-      <button class="pf-close-btn" id="pf-close-btn" title="Close">&#x2715;</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="pf-source-badge" id="pf-source-badge"></span>
+        <button class="pf-close-btn" id="pf-close-btn" title="Close">&#x2715;</button>
+      </div>
     </div>
 
     <div class="pf-meta" id="pf-meta"></div>
 
     <div class="pf-section-label">Enhanced prompt</div>
     <div class="pf-output-wrap">
-      <textarea class="pf-output" id="pf-output" readonly spellcheck="false"></textarea>
+      <textarea class="pf-output" id="pf-output" readonly spellcheck="false"
+        placeholder="Enhancing with Ollama..."></textarea>
     </div>
 
     <div class="pf-task-row">
@@ -132,7 +149,7 @@ function pfCreatePanel() {
     </div>
 
     <div class="pf-actions">
-      <button class="pf-btn pf-btn-primary" id="pf-insert-btn">Insert into chat</button>
+      <button class="pf-btn pf-btn-primary"   id="pf-insert-btn">Insert into chat</button>
       <button class="pf-btn pf-btn-secondary" id="pf-copy-btn">Copy</button>
     </div>
 
@@ -146,29 +163,83 @@ function pfCreatePanel() {
   document.getElementById("pf-regen-btn").addEventListener("click", pfRegenerate);
 }
 
+// ── Loading state helpers ─────────────────────────────────────────────────────
+
+function pfSetLoading(on) {
+  pfLoading = on;
+  const output    = document.getElementById("pf-output");
+  const insertBtn = document.getElementById("pf-insert-btn");
+  const copyBtn   = document.getElementById("pf-copy-btn");
+  const regenBtn  = document.getElementById("pf-regen-btn");
+  const sel       = document.getElementById("pf-task-select");
+
+  if (on) {
+    if (output)    { output.value = ""; output.placeholder = "Enhancing with Ollama — this may take a few seconds..."; }
+    if (insertBtn) insertBtn.disabled = true;
+    if (copyBtn)   copyBtn.disabled   = true;
+    if (regenBtn)  regenBtn.disabled  = true;
+    if (sel)       sel.disabled       = true;
+    if (pfBtn)     pfBtn.textContent  = "Enhancing...";
+  } else {
+    if (output)    output.placeholder = "";
+    if (insertBtn) insertBtn.disabled = false;
+    if (copyBtn)   copyBtn.disabled   = false;
+    if (regenBtn)  regenBtn.disabled  = false;
+    if (sel)       sel.disabled       = false;
+    if (pfBtn)     pfBtn.textContent  = "Enhance";
+  }
+}
+
 // ── Core: run enhancement ─────────────────────────────────────────────────────
 
-function pfRunEnhance(rawPrompt, overrideType) {
+async function pfRunEnhance(rawPrompt, overrideType) {
   const taskType = overrideType || pfDetectTask(rawPrompt);
   const language = pfDetectLanguage(rawPrompt);
-  const enhanced = pfEnhance(rawPrompt, taskType, language);
 
-  pfLastResult = { rawPrompt, taskType, language, enhanced };
+  pfSetLoading(true);
+  pfOpenPanel();
 
-  const output = document.getElementById("pf-output");
-  const badge  = document.getElementById("pf-task-badge");
-  const meta   = document.getElementById("pf-meta");
-  const sel    = document.getElementById("pf-task-select");
+  try {
+    const { enhanced, source, model } = await pfEnhanceLLM(rawPrompt, taskType, language);
 
-  if (output) output.value = enhanced;
-  if (badge)  badge.textContent = taskType.toUpperCase();
-  if (meta)   meta.textContent  = `Detected: ${taskType}${language ? "  |  lang: " + language : ""}  |  ${enhanced.split(/\s+/).length} words`;
-  if (sel)    sel.value = taskType;
+    pfLastResult = { rawPrompt, taskType, language, enhanced };
+
+    const output     = document.getElementById("pf-output");
+    const badge      = document.getElementById("pf-task-badge");
+    const sourceBadge = document.getElementById("pf-source-badge");
+    const meta       = document.getElementById("pf-meta");
+    const sel        = document.getElementById("pf-task-select");
+
+    if (output)     output.value = enhanced;
+    if (badge)      badge.textContent = taskType.toUpperCase();
+    if (sourceBadge) {
+      if (source === "llm") {
+        sourceBadge.textContent = model ? `Ollama: ${model}` : "Ollama";
+        sourceBadge.style.cssText = "font-size:9.5px;color:#34d399;background:#052e16;border:1px solid #166534;padding:2px 8px;border-radius:4px;font-weight:700;";
+      } else {
+        sourceBadge.textContent = "rule-based fallback";
+        sourceBadge.style.cssText = "font-size:9.5px;color:#f59e0b;background:#1c1400;border:1px solid #92400e;padding:2px 8px;border-radius:4px;font-weight:700;";
+      }
+    }
+    if (meta) {
+      meta.textContent = `task: ${taskType}${language ? "  |  lang: " + language : ""}  |  ${enhanced.split(/\s+/).length} words`;
+    }
+    if (sel) sel.value = taskType;
+
+    // Cache state for popup
+    chrome.runtime.sendMessage({ type: "PF_RESULT", data: { rawPrompt, taskType, language, enhanced } });
+
+  } catch (err) {
+    pfShowStatus("Enhancement failed: " + err.message, "err");
+  } finally {
+    pfSetLoading(false);
+  }
 }
 
 // ── Click handler for the Enhance button ─────────────────────────────────────
 
-function pfOnEnhanceClick() {
+async function pfOnEnhanceClick() {
+  if (pfLoading) return;
   const el  = pfSite && pfSite.textarea();
   const raw = pfGetText(el).trim();
 
@@ -178,16 +249,15 @@ function pfOnEnhanceClick() {
   }
 
   pfCreatePanel();
-  pfRunEnhance(raw, null);
-  pfOpenPanel();
+  await pfRunEnhance(raw, null);
 }
 
 // ── Re-enhance with manually chosen task type ─────────────────────────────────
 
-function pfRegenerate() {
+async function pfRegenerate() {
+  if (pfLoading || !pfLastResult) return;
   const sel = document.getElementById("pf-task-select");
-  if (!pfLastResult) return;
-  pfRunEnhance(pfLastResult.rawPrompt, sel ? sel.value : null);
+  await pfRunEnhance(pfLastResult.rawPrompt, sel ? sel.value : null);
   pfShowStatus("Re-enhanced.", "ok");
 }
 
@@ -208,7 +278,6 @@ function pfCopy() {
   navigator.clipboard.writeText(pfLastResult.enhanced)
     .then(() => pfShowStatus("Copied to clipboard.", "ok"))
     .catch(() => {
-      // Fallback for restricted contexts
       const ta = document.createElement("textarea");
       ta.value = pfLastResult.enhanced;
       ta.style.position = "fixed";
@@ -242,7 +311,7 @@ function pfShowStatus(msg, type) {
   if (!el) return;
   el.textContent = msg;
   el.className = `pf-status pf-status-${type}`;
-  setTimeout(() => { if (el) el.textContent = ""; }, 2500);
+  setTimeout(() => { if (el) el.textContent = ""; }, 2800);
 }
 
 // ── Keyboard shortcut: Ctrl+Shift+E / Cmd+Shift+E ────────────────────────────

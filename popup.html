@@ -182,8 +182,15 @@
 <body>
 
   <div class="header">
-    <div class="header-title">Prompt Forge</div>
-    <div class="header-sub">Rewrites rough prompts as a senior engineer would write them</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="header-title">Prompt Forge</div>
+        <div class="header-sub">Rewrites rough prompts as a senior engineer would write them</div>
+      </div>
+      <button id="settings-btn" title="LLM Settings"
+        style="background:none;border:none;cursor:pointer;color:#334155;font-size:15px;padding:2px 4px;line-height:1;transition:color 0.15s"
+        onmouseover="this.style.color='#a5b4fc'" onmouseout="this.style.color='#334155'">&#9881;</button>
+    </div>
   </div>
 
   <div class="input-section">
@@ -212,6 +219,7 @@
       <div class="section-label" style="margin-bottom:0">Enhanced prompt</div>
       <div style="display:flex;align-items:center;gap:6px">
         <span class="meta-text" id="meta-text"></span>
+        <span id="source-badge"></span>
         <span class="task-chip" id="task-chip"></span>
       </div>
     </div>
@@ -240,6 +248,7 @@
 
   <script src="classifier.js"></script>
   <script src="enricher.js"></script>
+  <script src="llm.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
