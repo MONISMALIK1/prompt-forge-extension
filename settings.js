@@ -13,6 +13,20 @@ const savedMsg      = document.getElementById("saved-msg");
 const DEFAULT_ENDPOINT = "http://localhost:11434";
 const DEFAULT_MODEL    = "llama3.2";
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function isValidUrl(str) {
+  try {
+    const u = new URL(str);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch { return false; }
+}
+
+function setConnStatus(msg, type) {
+  connStatus.textContent = msg;
+  connStatus.className   = type ? `status-row status-${type}` : "status-row";
+}
+
 // ── Load saved settings ───────────────────────────────────────────────────────
 
 chrome.storage.local.get(["pfEndpoint", "pfModel"], (result) => {
@@ -24,27 +38,31 @@ chrome.storage.local.get(["pfEndpoint", "pfModel"], (result) => {
 
 testBtn.addEventListener("click", () => {
   const endpoint = endpointInput.value.trim() || DEFAULT_ENDPOINT;
-  connStatus.textContent = "Connecting...";
-  connStatus.className   = "status-row";
-  modelList.innerHTML    = "";
+
+  if (!isValidUrl(endpoint)) {
+    setConnStatus("Invalid URL — must start with http:// or https://", "err");
+    return;
+  }
+
+  setConnStatus("Connecting...", null);
+  modelList.innerHTML = "";
 
   chrome.runtime.sendMessage({ type: "PF_TEST_CONNECTION", endpoint }, (response) => {
     if (chrome.runtime.lastError || !response || !response.ok) {
-      const err = (response && response.error) || (chrome.runtime.lastError && chrome.runtime.lastError.message) || "Could not reach Ollama";
-      connStatus.textContent = `Connection failed: ${err}`;
-      connStatus.className   = "status-row status-err";
+      const err = (response && response.error)
+        || (chrome.runtime.lastError && chrome.runtime.lastError.message)
+        || "Could not reach Ollama";
+      setConnStatus(`Connection failed: ${err}`, "err");
       return;
     }
 
     const { models } = response;
     if (!models.length) {
-      connStatus.textContent = "Connected — no models found. Run: ollama pull llama3.2";
-      connStatus.className   = "status-row status-warn";
+      setConnStatus("Connected — no models found. Run: ollama pull llama3.2", "warn");
       return;
     }
 
-    connStatus.textContent = `Connected — ${models.length} model${models.length === 1 ? "" : "s"} available`;
-    connStatus.className   = "status-row status-ok";
+    setConnStatus(`Connected — ${models.length} model${models.length === 1 ? "" : "s"} available`, "ok");
 
     const currentModel = modelInput.value.trim();
     models.forEach((name) => {
@@ -53,19 +71,34 @@ testBtn.addEventListener("click", () => {
       chip.textContent = name;
       chip.addEventListener("click", () => {
         modelInput.value = name;
-        document.querySelectorAll(".model-chip").forEach(c => c.classList.remove("selected"));
-        chip.classList.add("selected");
+        syncChips(name);
       });
       modelList.appendChild(chip);
     });
   });
 });
 
+// ── Sync chip highlight to match text input ───────────────────────────────────
+
+function syncChips(value) {
+  document.querySelectorAll(".model-chip").forEach((c) => {
+    c.classList.toggle("selected", c.textContent === value);
+  });
+}
+
+modelInput.addEventListener("input", () => syncChips(modelInput.value.trim()));
+
 // ── Save settings ─────────────────────────────────────────────────────────────
 
 saveBtn.addEventListener("click", () => {
   const endpoint = endpointInput.value.trim() || DEFAULT_ENDPOINT;
   const model    = modelInput.value.trim()    || DEFAULT_MODEL;
+
+  if (!isValidUrl(endpoint)) {
+    setConnStatus("Cannot save — invalid URL format.", "err");
+    endpointInput.focus();
+    return;
+  }
 
   chrome.storage.local.set({ pfEndpoint: endpoint, pfModel: model }, () => {
     savedMsg.classList.add("visible");
