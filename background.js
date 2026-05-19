@@ -12,12 +12,12 @@ const PF_DEFAULT_MODEL    = "llama3.2";
 
 const tabState = new Map();
 
-// ── Meta-prompt ────────────────────────────────────────────────────────────────
+// ── Meta-prompt (constant — built once, reused on every request) ──────────────
 // Carefully designed so the LLM actually READS the specific prompt and generates
 // requirements specific to that exact request — not a generic template.
 
-function pfBuildSystemPrompt() {
-  return `You are a senior software engineer with 15+ years of production experience across backend systems, APIs, databases, distributed systems, and frontend engineering.
+const PF_SYSTEM_PROMPT =
+`You are a senior software engineer with 15+ years of production experience across backend systems, APIs, databases, distributed systems, and frontend engineering.
 
 Your job: rewrite a developer's rough prompt into a precise engineering specification that will get a correct, complete answer from an AI coding assistant.
 
@@ -45,6 +45,20 @@ State your interpretation of any ambiguous requirement before proceeding.
 DO NOT use a rigid section structure if the prompt is simple. Match output length and complexity to the complexity of the actual task.
 DO NOT add requirements that are not implied by the original prompt.
 DO NOT repeat the same generic phrases ("validate all inputs", "use a connection pool", "add error handling") unless they directly and specifically apply to this exact request.`;
+
+// ── URL validation ────────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the string is a well-formed http/https URL.
+ * Used before every fetch so we get a clear error instead of an opaque TypeError.
+ */
+function pfIsValidUrl(str) {
+  try {
+    const u = new URL(str);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 // ── Ollama API call ────────────────────────────────────────────────────────────
@@ -53,6 +67,10 @@ async function pfCallOllama(rawPrompt, taskType, language) {
   const settings = await chrome.storage.local.get(["pfEndpoint", "pfModel"]);
   const endpoint = settings.pfEndpoint || PF_DEFAULT_ENDPOINT;
   const model    = settings.pfModel    || PF_DEFAULT_MODEL;
+
+  if (!pfIsValidUrl(endpoint)) {
+    throw new Error(`Invalid endpoint URL: "${endpoint}". Open Settings to fix it.`);
+  }
 
   const langHint = language ? ` The language or framework appears to be: ${language}.` : "";
   const typeHint = taskType ? ` Task category: ${taskType}.` : "";
@@ -67,7 +85,7 @@ async function pfCallOllama(rawPrompt, taskType, language) {
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: pfBuildSystemPrompt() },
+        { role: "system", content: PF_SYSTEM_PROMPT },
         { role: "user",   content: userMessage },
       ],
       stream:      false,
@@ -122,6 +140,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Settings: test Ollama connection and list available models
   if (msg.type === "PF_TEST_CONNECTION") {
     const endpoint = msg.endpoint || PF_DEFAULT_ENDPOINT;
+    if (!pfIsValidUrl(endpoint)) {
+      sendResponse({ ok: false, error: "Invalid URL format" });
+      return;
+    }
     fetch(`${endpoint}/api/tags`, { signal: AbortSignal.timeout(6000) })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
