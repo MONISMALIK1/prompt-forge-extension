@@ -174,14 +174,14 @@ function pfSetLoading(on) {
   const sel       = document.getElementById("pf-task-select");
 
   if (on) {
-    if (output)    { output.value = ""; output.placeholder = "Enhancing with Ollama — this may take a few seconds..."; }
+    if (output)    { output.value = ""; output.classList.add("pf-loading"); output.placeholder = "Calling Ollama — this may take a few seconds..."; }
     if (insertBtn) insertBtn.disabled = true;
     if (copyBtn)   copyBtn.disabled   = true;
     if (regenBtn)  regenBtn.disabled  = true;
     if (sel)       sel.disabled       = true;
     if (pfBtn)     pfBtn.textContent  = "Enhancing...";
   } else {
-    if (output)    output.placeholder = "";
+    if (output)    { output.classList.remove("pf-loading"); output.placeholder = ""; }
     if (insertBtn) insertBtn.disabled = false;
     if (copyBtn)   copyBtn.disabled   = false;
     if (regenBtn)  regenBtn.disabled  = false;
@@ -215,10 +215,10 @@ async function pfRunEnhance(rawPrompt, overrideType) {
     if (sourceBadge) {
       if (source === "llm") {
         sourceBadge.textContent = model ? `Ollama: ${model}` : "Ollama";
-        sourceBadge.style.cssText = "font-size:9.5px;color:#34d399;background:#052e16;border:1px solid #166534;padding:2px 8px;border-radius:4px;font-weight:700;";
+        sourceBadge.className   = "pf-source-llm";
       } else {
         sourceBadge.textContent = "rule-based fallback";
-        sourceBadge.style.cssText = "font-size:9.5px;color:#f59e0b;background:#1c1400;border:1px solid #92400e;padding:2px 8px;border-radius:4px;font-weight:700;";
+        sourceBadge.className   = "pf-source-fallback";
       }
     }
     if (meta) {

@@ -38,19 +38,15 @@ function setLoading(on) {
 
 function renderSourceBadge(source, model) {
   if (!sourceBadge) return;
+  sourceBadge.className = "";
   if (source === "llm") {
     sourceBadge.textContent = model ? `Ollama: ${model}` : "Ollama";
-    sourceBadge.style.cssText =
-      "font-size:9.5px;font-weight:700;color:#34d399;background:#052e16;" +
-      "border:1px solid #166534;padding:2px 7px;border-radius:4px;";
+    sourceBadge.className   = "pf-source-llm";
   } else if (source === "fallback") {
     sourceBadge.textContent = "rule-based";
-    sourceBadge.style.cssText =
-      "font-size:9.5px;font-weight:700;color:#f59e0b;background:#1c1400;" +
-      "border:1px solid #92400e;padding:2px 7px;border-radius:4px;";
+    sourceBadge.className   = "pf-source-fallback";
   } else {
     sourceBadge.textContent = "";
-    sourceBadge.style.cssText = "";
   }
 }
 
