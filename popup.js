@@ -19,6 +19,9 @@ const settingsBtn = document.getElementById("settings-btn");
 let lastEnhanced = "";
 let isLoading    = false;
 
+// Copy starts disabled — enabled only when there is actual output
+copyBtn.disabled = true;
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function showStatus(msg, type) {
@@ -29,9 +32,10 @@ function showStatus(msg, type) {
 
 function setLoading(on) {
   isLoading = on;
-  enhanceBtn.disabled  = on;
+  enhanceBtn.disabled    = on;
   enhanceBtn.textContent = on ? "Enhancing..." : "Enhance";
-  outputTa.placeholder = on
+  copyBtn.disabled       = on || !lastEnhanced;
+  outputTa.placeholder   = on
     ? "Calling Ollama — this may take a few seconds..."
     : "Enhanced prompt will appear here...";
 }
@@ -73,12 +77,13 @@ async function runEnhance() {
 
     lastEnhanced = enhanced;
     outputTa.value = enhanced;
+    copyBtn.disabled = false;
 
     taskChip.textContent = taskType.toUpperCase();
     renderSourceBadge(source, model);
     metaText.textContent =
       (language ? `lang: ${language}  |  ` : "") +
-      `${enhanced.split(/\s+/).length} words`;
+      `${enhanced.split(/\s+/).filter(Boolean).length} words`;
 
     if (!override) taskSelect.value = "auto";
 
@@ -134,7 +139,7 @@ chrome.runtime.sendMessage({ type: "PF_GET_STATE" }, (response) => {
   if (chrome.runtime.lastError || !response || !response.state) return;
   const { rawPrompt, enhanced, taskType, language } = response.state;
   if (rawPrompt) rawInput.value = rawPrompt;
-  if (enhanced)  { outputTa.value = enhanced; lastEnhanced = enhanced; }
+  if (enhanced)  { outputTa.value = enhanced; lastEnhanced = enhanced; copyBtn.disabled = false; }
   if (taskType)  taskChip.textContent = taskType.toUpperCase();
   if (language)  metaText.textContent = `lang: ${language}`;
 });
