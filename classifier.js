@@ -1,7 +1,11 @@
 /**
  * classifier.js — Detect task type and language from a rough prompt.
  * Runs entirely in the browser. Zero network calls.
+ *
+ * All RegExp objects are compiled once at module load — never inside a loop.
  */
+
+// ── Keyword tables ────────────────────────────────────────────────────────────
 
 const PF_TASK_KEYWORDS = {
   implement: [
@@ -53,6 +57,21 @@ const PF_TASK_KEYWORDS = {
   ],
 };
 
+const PF_LANG_MAP = {
+  python:     ["python","fastapi","django","flask","pydantic","numpy","pandas"],
+  typescript: ["typescript","tsx"],
+  javascript: ["javascript","node","express","react","vue","angular","next.js","nextjs"],
+  rust:       ["rust","cargo","tokio","actix"],
+  go:         ["golang"],
+  java:       ["java","spring","maven","gradle"],
+  "c++":      ["c\\+\\+","cpp","cmake"],
+  "c#":       ["\\.net","dotnet","asp\\.net"],
+  swift:      ["swift","swiftui","ios","xcode"],
+  kotlin:     ["kotlin","android"],
+  sql:        ["sql","postgres","postgresql","mysql","sqlite","mongodb"],
+  bash:       ["bash","shell"],
+};
+
 const PF_PRIORITY = [
   "security","debug","optimize","test","review",
   "refactor","design","explain","implement",
@@ -69,43 +88,51 @@ const PF_LEADING_VERB_MAP = [
   { re: /^\s*(build|create|implement|write|develop|add|make|scaffold|set\s+up)\b/i,                  task: "implement", bonus: 3 },
 ];
 
-const PF_LANG_MAP = {
-  python:     ["python","fastapi","django","flask","pydantic","numpy","pandas"],
-  typescript: ["typescript","tsx"],
-  javascript: ["javascript","node","express","react","vue","angular","next.js","nextjs"],
-  rust:       ["rust","cargo","tokio","actix"],
-  go:         ["golang"],
-  java:       ["java","spring","maven","gradle"],
-  "c++":      ["c++","cpp","cmake"],
-  "c#":       [".net","dotnet","asp.net"],
-  swift:      ["swift","swiftui","ios","xcode"],
-  kotlin:     ["kotlin","android"],
-  sql:        ["sql","postgres","postgresql","mysql","sqlite","mongodb"],
-  bash:       ["bash","shell"],
-};
+// ── Precompile all regexes at module load ─────────────────────────────────────
+// Building RegExp objects inside a scoring loop allocates garbage on every
+// keystroke. Compile once here; reuse on every call to pfDetectTask / pfDetectLanguage.
+
+function _escRe(str) {
+  // Escape regex metacharacters (some entries in PF_LANG_MAP are already escaped)
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** @type {Record<string, RegExp[]>} */
+const PF_TASK_RE = {};
+for (const [task, kws] of Object.entries(PF_TASK_KEYWORDS)) {
+  PF_TASK_RE[task] = kws.map(kw => new RegExp("\\b" + _escRe(kw) + "\\b", "i"));
+}
+
+/** @type {Array<{lang: string, res: RegExp[]}>} */
+const PF_LANG_RE = Object.entries(PF_LANG_MAP).map(([lang, hints]) => ({
+  lang,
+  res: hints.map(h => new RegExp("\\b" + h + "\\b", "i")), // lang hints may contain pre-escaped chars
+}));
+
+// ── Detection functions ───────────────────────────────────────────────────────
 
 function pfDetectTask(text) {
-  const lower = text.toLowerCase();
   const scores = {};
   for (const t of Object.keys(PF_TASK_KEYWORDS)) scores[t] = 0;
 
-  for (const [task, kws] of Object.entries(PF_TASK_KEYWORDS)) {
-    for (const kw of kws) {
-      const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (new RegExp("\\b" + esc + "\\b").test(lower)) scores[task]++;
+  for (const [task, res] of Object.entries(PF_TASK_RE)) {
+    for (const re of res) {
+      if (re.test(text)) scores[task]++;
     }
   }
 
-  // Leading verb boost
+  // Leading verb boost — first match wins (ordered by specificity)
   for (const { re, task, bonus } of PF_LEADING_VERB_MAP) {
     if (re.test(text)) { scores[task] += bonus; break; }
   }
 
-  // Strong security override
+  // Strong security signal: 3+ keywords → guaranteed win
   if (scores.security >= 3) scores.security += 4;
 
   const best = Math.max(...Object.values(scores));
   if (best === 0) return "implement";
+
+  // Priority tie-break
   for (const t of PF_PRIORITY) {
     if (scores[t] === best) return t;
   }
@@ -113,11 +140,9 @@ function pfDetectTask(text) {
 }
 
 function pfDetectLanguage(text) {
-  const lower = text.toLowerCase();
-  for (const [lang, hints] of Object.entries(PF_LANG_MAP)) {
-    for (const h of hints) {
-      const esc = h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (new RegExp("\\b" + esc + "\\b").test(lower)) return lang;
+  for (const { lang, res } of PF_LANG_RE) {
+    for (const re of res) {
+      if (re.test(text)) return lang;
     }
   }
   return null;
