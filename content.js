@@ -74,6 +74,7 @@ let pfBtn        = null;
 let pfPanel      = null;
 let pfLastResult = null;
 let pfLoading    = false;
+let pfAttachedEl = null;   // ref to the textarea we already attached to
 
 // ── Get prompt text ───────────────────────────────────────────────────────────
 
@@ -321,13 +322,21 @@ function pfBoot() {
   pfSite = PF_SITES.find(s => s.host.test(location.hostname));
   if (!pfSite) return;
 
+  // Only create the button now — the panel is created lazily on first click
+  // so we don't inject ~30 DOM elements into every matching page on load.
   pfCreateButton();
-  pfCreatePanel();
 
   const tryAttach = () => {
+    // Fast path: if we already attached to an element that is still in the
+    // DOM, skip the querySelector entirely. This prevents a full subtree
+    // query on every DOM mutation (ChatGPT fires hundreds per streaming token).
+    if (pfAttachedEl && document.contains(pfAttachedEl)) return;
+
+    pfAttachedEl = null;
     const el = pfSite.textarea();
-    if (!el || el._pfAttached) return;
-    el._pfAttached = true;
+    if (!el) return;
+
+    pfAttachedEl = el;
 
     const reposition = () => {
       const text = pfGetText(el).trim();
