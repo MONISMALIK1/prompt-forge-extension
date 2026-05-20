@@ -275,19 +275,11 @@ function pfInsert() {
 
 function pfCopy() {
   if (!pfLastResult) return;
+  // Clipboard API is reliable in MV3 extensions with clipboardWrite permission.
+  // Removed deprecated document.execCommand("copy") fallback.
   navigator.clipboard.writeText(pfLastResult.enhanced)
     .then(() => pfShowStatus("Copied to clipboard.", "ok"))
-    .catch(() => {
-      const ta = document.createElement("textarea");
-      ta.value = pfLastResult.enhanced;
-      ta.style.position = "fixed";
-      ta.style.opacity  = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      pfShowStatus("Copied to clipboard.", "ok");
-    });
+    .catch(() => pfShowStatus("Copy failed — select the text and copy manually.", "warn"));
 }
 
 // ── Panel open/close ──────────────────────────────────────────────────────────

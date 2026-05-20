@@ -104,19 +104,11 @@ rawInput.addEventListener("keydown", (e) => {
 
 copyBtn.addEventListener("click", () => {
   if (!lastEnhanced) { showStatus("Nothing to copy yet.", "warn"); return; }
+  // Clipboard API is reliable in MV3 extension popups with clipboardWrite permission.
+  // Removed deprecated document.execCommand("copy") fallback.
   navigator.clipboard.writeText(lastEnhanced)
     .then(() => showStatus("Copied to clipboard.", "ok"))
-    .catch(() => {
-      const ta = document.createElement("textarea");
-      ta.value = lastEnhanced;
-      ta.style.position = "fixed";
-      ta.style.opacity  = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      showStatus("Copied to clipboard.", "ok");
-    });
+    .catch(() => showStatus("Copy failed — select the text and copy manually.", "warn"));
 });
 
 clearBtn.addEventListener("click", () => {
