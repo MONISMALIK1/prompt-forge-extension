@@ -79,21 +79,32 @@ async function pfCallOllama(rawPrompt, taskType, language) {
     `Rough prompt: "${rawPrompt}"${langHint}${typeHint}\n\n` +
     `Rewrite this as a precise engineering specification.`;
 
-  const response = await fetch(`${endpoint}/v1/chat/completions`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: PF_SYSTEM_PROMPT },
-        { role: "user",   content: userMessage },
-      ],
-      stream:      false,
-      temperature: 0.3,    // low = consistent and precise, not creative
-      max_tokens:  1400,
-    }),
-    signal: AbortSignal.timeout(90000), // 90 s — local models can be slow on first call
-  });
+  // AbortSignal.timeout() requires Chrome 103+; MV3 minimum is Chrome 88+.
+  // Polyfill with AbortController + setTimeout so the extension works on
+  // older Chrome versions.
+  const controller   = new AbortController();
+  const timeoutId    = setTimeout(() => controller.abort(), 90_000); // 90 s
+
+  let response;
+  try {
+    response = await fetch(`${endpoint}/v1/chat/completions`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: PF_SYSTEM_PROMPT },
+          { role: "user",   content: userMessage },
+        ],
+        stream:      false,
+        temperature: 0.3,  // low = consistent and precise output
+        max_tokens:  1400,
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId); // always cancel the timer, success or failure
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
@@ -102,7 +113,15 @@ async function pfCallOllama(rawPrompt, taskType, language) {
 
   const data = await response.json();
   const text = data?.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error("Ollama returned an empty response");
+
+  if (!text || text.length < 40) {
+    // A response shorter than 40 chars is almost certainly a refusal
+    // ("I cannot help…") or a truncation — fall back to rule-based enricher.
+    throw new Error(
+      text ? `Response too short (${text.length} chars) — possible truncation or refusal`
+           : "Ollama returned an empty response"
+    );
+  }
 
   return { enhanced: text, model };
 }
