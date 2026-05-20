@@ -85,6 +85,10 @@ async function runEnhance() {
       (language ? `lang: ${language}  |  ` : "") +
       `${enhanced.split(/\s+/).filter(Boolean).length} words`;
 
+    if (source === "fallback") {
+      showStatus("Ollama not running — showing rule-based output. Run: ollama serve", "warn");
+    }
+
     if (!override) taskSelect.value = "auto";
 
   } catch (err) {

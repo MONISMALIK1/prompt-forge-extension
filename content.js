@@ -227,6 +227,10 @@ async function pfRunEnhance(rawPrompt, overrideType) {
     }
     if (sel) sel.value = taskType;
 
+    if (source === "fallback") {
+      pfShowStatus("Ollama not running — rule-based fallback used. Run: ollama serve", "warn");
+    }
+
     // Cache state for popup
     chrome.runtime.sendMessage({ type: "PF_RESULT", data: { rawPrompt, taskType, language, enhanced } });
 
