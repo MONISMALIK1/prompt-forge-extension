@@ -339,14 +339,29 @@ const PF_ANTI_HALLUCINATION = `
    Do not omit the flag to appear more certain.
 ─────────────────────────────────────────────────────────────────────────────`.trim();
 
+// ── Precompile concept-expansion regexes ─────────────────────────────────────
+// Using String.includes() caused false positives:
+//   "api"  matched "capitalize", "mapping"
+//   "test" matched "latest", "attest"
+//   "rest" matched "forest", "interest"
+//   "sql"  matched "consul"
+//   "react" matched "reactivate"
+// Word-boundary regexes are compiled once here and reused on every call.
+
+const PF_CONCEPT_RE = Object.fromEntries(
+  Object.keys(PF_CONCEPT_EXPANSIONS).map((concept) => {
+    const esc = concept.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return [concept, new RegExp("\\b" + esc + "\\b", "i")];
+  })
+);
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function pfFindConceptExpansions(text) {
-  const lower = text.toLowerCase();
   const found = [];
   const seen  = new Set();
   for (const [concept, points] of Object.entries(PF_CONCEPT_EXPANSIONS)) {
-    if (lower.includes(concept)) {
+    if (PF_CONCEPT_RE[concept].test(text)) {
       for (const p of points) {
         if (!seen.has(p)) { seen.add(p); found.push(p); }
       }
